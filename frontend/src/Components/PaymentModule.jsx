@@ -9,6 +9,43 @@ const PaymentModule = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const today = new Date();
   
+  const generateDayOptions = () => {
+    const options = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      let label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      if (i === 0) label = "Today";
+      else if (i === 1) label = "Yesterday";
+      
+      const value = `DAY_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      options.push({ value, label });
+    }
+    return options;
+  };
+
+  const generateWeekOptions = () => {
+    const options = [];
+    for (let i = 0; i < 5; i++) {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay() - (i * 7));
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      
+      let label = `${startOfWeek.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${endOfWeek.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`;
+      if (i === 0) label = "This Week";
+      else if (i === 1) label = "Last Week";
+      
+      // Store start and end timestamps in the value
+      startOfWeek.setHours(0,0,0,0);
+      endOfWeek.setHours(23,59,59,999);
+      const value = `WEEK_${startOfWeek.getTime()}_${endOfWeek.getTime()}`;
+      options.push({ value, label });
+    }
+    return options;
+  };
+
   const generateMonthOptions = () => {
     const options = [];
     options.push({ value: "ALL", label: "All Time" });
@@ -20,6 +57,9 @@ const PaymentModule = () => {
     }
     return options;
   };
+  
+  const dayOptions = generateDayOptions();
+  const weekOptions = generateWeekOptions();
   const monthOptions = generateMonthOptions();
   
   const currentMonthValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -40,29 +80,18 @@ const PaymentModule = () => {
       pDate = new Date(p.paymentDate);
     }
 
-    const pMonthValue = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`;
-    
-    if (selectedMonth === "TODAY") {
-      const now = new Date();
-      return pDate.getFullYear() === now.getFullYear() && 
-             pDate.getMonth() === now.getMonth() && 
-             pDate.getDate() === now.getDate();
+    if (selectedMonth.startsWith('DAY_')) {
+      const dateStr = selectedMonth.replace('DAY_', '');
+      const pDayValue = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}-${String(pDate.getDate()).padStart(2, '0')}`;
+      return pDayValue === dateStr;
     }
     
-    if (selectedMonth === "THIS_WEEK") {
-      const now = new Date();
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
-      startOfWeek.setHours(0,0,0,0);
-      
-      const endOfWeek = new Date(now);
-      endOfWeek.setDate(now.getDate() - now.getDay() + 6); // Saturday
-      endOfWeek.setHours(23,59,59,999);
-      
-      return pDate >= startOfWeek && pDate <= endOfWeek;
+    if (selectedMonth.startsWith('WEEK_')) {
+      const parts = selectedMonth.replace('WEEK_', '').split('_');
+      const start = parseInt(parts[0]);
+      const end = parseInt(parts[1]);
+      return pDate.getTime() >= start && pDate.getTime() <= end;
     }
-
-    return pMonthValue === selectedMonth;
   });
 
   const totalIncome = filteredPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
@@ -83,24 +112,30 @@ const PaymentModule = () => {
             <Search size={16} />
             <input type="text" placeholder="Search invoices..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
-          <button 
-            className={`btn-filter ${selectedMonth === 'TODAY' ? 'active' : ''}`}
-            onClick={() => setSelectedMonth('TODAY')}
-          >
-            Today
-          </button>
-          <button 
-            className={`btn-filter ${selectedMonth === 'THIS_WEEK' ? 'active' : ''}`}
-            onClick={() => setSelectedMonth('THIS_WEEK')}
-          >
-            This Week
-          </button>
           <select 
-            className="month-select" 
-            value={['TODAY', 'THIS_WEEK'].includes(selectedMonth) ? 'CUSTOM' : selectedMonth} 
+            className="month-select"
+            value={selectedMonth.startsWith('DAY_') ? selectedMonth : 'DEFAULT'}
             onChange={e => setSelectedMonth(e.target.value)}
           >
-            {['TODAY', 'THIS_WEEK'].includes(selectedMonth) && <option value="CUSTOM" disabled>Filtered</option>}
+            <option value="DEFAULT" disabled>Filter by Day...</option>
+            {dayOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+
+          <select 
+            className="month-select"
+            value={selectedMonth.startsWith('WEEK_') ? selectedMonth : 'DEFAULT'}
+            onChange={e => setSelectedMonth(e.target.value)}
+          >
+            <option value="DEFAULT" disabled>Filter by Week...</option>
+            {weekOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+
+          <select 
+            className="month-select" 
+            value={(!selectedMonth.startsWith('DAY_') && !selectedMonth.startsWith('WEEK_')) ? selectedMonth : 'DEFAULT'} 
+            onChange={e => setSelectedMonth(e.target.value)}
+          >
+            <option value="DEFAULT" disabled>Filter by Month...</option>
             {monthOptions.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
