@@ -41,6 +41,27 @@ const PaymentModule = () => {
     }
 
     const pMonthValue = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (selectedMonth === "TODAY") {
+      const now = new Date();
+      return pDate.getFullYear() === now.getFullYear() && 
+             pDate.getMonth() === now.getMonth() && 
+             pDate.getDate() === now.getDate();
+    }
+    
+    if (selectedMonth === "THIS_WEEK") {
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+      startOfWeek.setHours(0,0,0,0);
+      
+      const endOfWeek = new Date(now);
+      endOfWeek.setDate(now.getDate() - now.getDay() + 6); // Saturday
+      endOfWeek.setHours(23,59,59,999);
+      
+      return pDate >= startOfWeek && pDate <= endOfWeek;
+    }
+
     return pMonthValue === selectedMonth;
   });
 
@@ -62,11 +83,24 @@ const PaymentModule = () => {
             <Search size={16} />
             <input type="text" placeholder="Search invoices..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
+          <button 
+            className={`btn-filter ${selectedMonth === 'TODAY' ? 'active' : ''}`}
+            onClick={() => setSelectedMonth('TODAY')}
+          >
+            Today
+          </button>
+          <button 
+            className={`btn-filter ${selectedMonth === 'THIS_WEEK' ? 'active' : ''}`}
+            onClick={() => setSelectedMonth('THIS_WEEK')}
+          >
+            This Week
+          </button>
           <select 
             className="month-select" 
-            value={selectedMonth} 
+            value={['TODAY', 'THIS_WEEK'].includes(selectedMonth) ? 'CUSTOM' : selectedMonth} 
             onChange={e => setSelectedMonth(e.target.value)}
           >
+            {['TODAY', 'THIS_WEEK'].includes(selectedMonth) && <option value="CUSTOM" disabled>Filtered</option>}
             {monthOptions.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
@@ -216,6 +250,19 @@ const Container = styled.div`
     .month-select {
       background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; 
       padding: 6px 12px; color: var(--text-color); outline: none; font-size: 0.9rem; cursor: pointer;
+    }
+    .btn-filter {
+      background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; 
+      padding: 6px 12px; color: var(--text-color); outline: none; font-size: 0.9rem; cursor: pointer;
+      transition: all 0.2s;
+      &.active {
+        background: var(--accent-color, #38bdf8);
+        color: #fff;
+        border-color: var(--accent-color, #38bdf8);
+      }
+      &:hover:not(.active) {
+        background: rgba(255,255,255,0.05);
+      }
     }
     .btn-primary { background: var(--accent-color, #38bdf8); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   }
