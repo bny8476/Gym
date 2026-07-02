@@ -17,15 +17,15 @@ export const useAdminStore = create((set, get) => ({
 
   fetchData: async (activeTab, forceRefresh = false) => {
     const state = get();
-    
+
     // OPTIMIZATION 1: Caching to prevent redundant network requests.
     // If we already have the data and didn't explicitly request a refresh, skip fetching.
     if (!forceRefresh) {
-        if (activeTab === "dashboard" || activeTab === "users" || activeTab === "staffs" || activeTab === "feedbacks" || activeTab === "payroll") {
-            if (state.users.length > 0 && state.staffs.length > 0 && state.payments.length > 0) {
-                return; // Data already cached, instant loading!
-            }
+      if (activeTab === "dashboard" || activeTab === "users" || activeTab === "staffs" || activeTab === "feedbacks" || activeTab === "payroll") {
+        if (state.users.length > 0 && state.staffs.length > 0 && state.payments.length > 0) {
+          return; // Data already cached, instant loading!
         }
+      }
     }
 
     set({ isLoading: true });
@@ -51,68 +51,68 @@ export const useAdminStore = create((set, get) => ({
 
       if (activeTab === "dashboard" || activeTab === "users" || activeTab === "staffs" || activeTab === "feedbacks" || activeTab === "payroll") {
         const standardUsers = (Array.isArray(results[0]) ? results[0] : []).filter(u => {
-            const r = u.role ? u.role.toUpperCase() : '';
-            return !['ADMIN', 'STAFF', 'TRAINER', 'FRONT OFFICE'].includes(r);
+          const r = u.role ? u.role.toUpperCase() : '';
+          return !['ADMIN', 'STAFF', 'TRAINER', 'FRONT OFFICE'].includes(r);
         });
         const paymentsData = Array.isArray(results[1]) ? results[1] : [];
-        
+
         // OPTIMIZATION 2: O(1) Dictionary Lookups instead of O(N*M) nested loops
         // Pre-group payments by user ID
         const paymentsByUserId = {};
         for (const p of paymentsData) {
-            const uid = p.user?.id || p.userId;
-            if (uid) {
-                if (!paymentsByUserId[uid]) paymentsByUserId[uid] = [];
-                paymentsByUserId[uid].push(p);
-            }
+          const uid = p.user?.id || p.userId;
+          if (uid) {
+            if (!paymentsByUserId[uid]) paymentsByUserId[uid] = [];
+            paymentsByUserId[uid].push(p);
+          }
         }
 
         const enhancedUsers = standardUsers.map(user => {
-            const userPayments = paymentsByUserId[user.id] || [];
-            if (userPayments.length > 0) {
-                userPayments.sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate));
-                const latestPayment = userPayments[userPayments.length - 1];
-                
-                let calculatedExpiry = latestPayment.planEndDate || user.expiryDate;
-                if (!calculatedExpiry && latestPayment.paymentDate) {
-                    const payDate = new Date(latestPayment.paymentDate);
-                    const planDuration = latestPayment.planName === "Annual" ? 12 : latestPayment.planName === "Half-Yearly" ? 6 : latestPayment.planName === "Quarterly" ? 3 : 1;
-                    payDate.setMonth(payDate.getMonth() + planDuration);
-                    calculatedExpiry = payDate.toISOString().split('T')[0];
-                }
+          const userPayments = paymentsByUserId[user.id] || [];
+          if (userPayments.length > 0) {
+            userPayments.sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate));
+            const latestPayment = userPayments[userPayments.length - 1];
 
-                return { 
-                  ...user, 
-                  expiryDate: calculatedExpiry,
-                  startDate: latestPayment.planStartDate || user.startDate || latestPayment.paymentDate.split('T')[0],
-                  membershipPlan: latestPayment.planName || user.membershipPlan || user.membershipType
-                };
-            }
-            
-            let calculatedExpiry = user.expiryDate;
-            if (!calculatedExpiry && user.createdAt) {
-                const createdDate = new Date(user.createdAt);
-                createdDate.setMonth(createdDate.getMonth() + 1);
-                calculatedExpiry = createdDate.toISOString().split('T')[0];
+            let calculatedExpiry = latestPayment.planEndDate || user.expiryDate;
+            if (!calculatedExpiry && latestPayment.paymentDate) {
+              const payDate = new Date(latestPayment.paymentDate);
+              const planDuration = latestPayment.planName === "Annual" ? 12 : latestPayment.planName === "Half-Yearly" ? 6 : latestPayment.planName === "Quarterly" ? 3 : 1;
+              payDate.setMonth(payDate.getMonth() + planDuration);
+              calculatedExpiry = payDate.toISOString().split('T')[0];
             }
 
             return {
-                ...user,
-                expiryDate: calculatedExpiry,
-                startDate: user.startDate || (user.createdAt ? user.createdAt.split('T')[0] : null)
+              ...user,
+              expiryDate: calculatedExpiry,
+              startDate: latestPayment.planStartDate || user.startDate || latestPayment.paymentDate.split('T')[0],
+              membershipPlan: latestPayment.planName || user.membershipPlan || user.membershipType
             };
+          }
+
+          let calculatedExpiry = user.expiryDate;
+          if (!calculatedExpiry && user.createdAt) {
+            const createdDate = new Date(user.createdAt);
+            createdDate.setMonth(createdDate.getMonth() + 1);
+            calculatedExpiry = createdDate.toISOString().split('T')[0];
+          }
+
+          return {
+            ...user,
+            expiryDate: calculatedExpiry,
+            startDate: user.startDate || (user.createdAt ? user.createdAt.split('T')[0] : null)
+          };
         });
-        
+
         const allAttendances = Array.isArray(results[2]) ? results[2] : [];
         const rawStaffs = Array.isArray(results[4]) ? results[4] : [];
-        
+
         // OPTIMIZATION 3: O(1) Dictionary Lookup for Attendance
         const attendanceCountByStaffId = {};
         for (const a of allAttendances) {
-            const sid = a.staff?.id || a.user?.id;
-            if (sid && (a.status === "PRESENT" || a.status === "Present" || !a.status)) {
-                attendanceCountByStaffId[sid] = (attendanceCountByStaffId[sid] || 0) + 1;
-            }
+          const sid = a.staff?.id || a.user?.id;
+          if (sid && (a.status === "PRESENT" || a.status === "Present" || !a.status)) {
+            attendanceCountByStaffId[sid] = (attendanceCountByStaffId[sid] || 0) + 1;
+          }
         }
 
         const daysPassed = new Date().getDate();
@@ -139,10 +139,12 @@ export const useAdminStore = create((set, get) => ({
         else if (activeTab === "feedbacks") set({ feedbacks: data });
         else if (activeTab === "consultations") set({ consultations: data });
         else if (activeTab === "requests") set({ leaves: data });
-        else if (activeTab === "users") set({ users: data.filter(u => {
+        else if (activeTab === "users") set({
+          users: data.filter(u => {
             const r = u.role ? u.role.toUpperCase() : '';
             return !['ADMIN', 'STAFF', 'TRAINER', 'FRONT OFFICE'].includes(r);
-        }) });
+          })
+        });
         else if (activeTab === "staffs" || activeTab === "trainers") set({ staffs: data });
         // memberships, products etc don't have dedicated arrays in the store, 
         // modules fetch them independently.
@@ -158,9 +160,9 @@ export const useAdminStore = create((set, get) => ({
     try {
       const res = await axiosInstance.post("/users/register", userData);
       const savedUser = res.data;
-      
+
       set((state) => ({ users: [savedUser, ...state.users] }));
-      
+
       if (userData.paymentAmount) {
         try {
           const paymentData = {
@@ -173,8 +175,8 @@ export const useAdminStore = create((set, get) => ({
             planEndDate: userData.expiryDate ? `${userData.expiryDate}T00:00:00` : null
           };
           const payRes = await axiosInstance.post(`/payments/user/${savedUser.id}`, paymentData);
-          set((state) => ({ 
-            payments: [{...payRes.data, paymentMode: userData.paymentMode || "Cash", paymentDate: new Date().toISOString().split('T')[0]}, ...state.payments]
+          set((state) => ({
+            payments: [{ ...payRes.data, paymentMode: userData.paymentMode || "Cash", paymentDate: new Date().toISOString().split('T')[0] }, ...state.payments]
           }));
         } catch (payErr) {
           log.error("Failed to save payment:", payErr);
@@ -192,7 +194,7 @@ export const useAdminStore = create((set, get) => ({
   updateUser: async (id, updatedData) => {
     try {
       const res = await axiosInstance.put(`/users/${id}`, updatedData);
-      
+
       if (updatedData.expiryDate) {
         try {
           const paymentData = {
@@ -206,13 +208,13 @@ export const useAdminStore = create((set, get) => ({
           };
           await axiosInstance.post(`/payments/user/${id}`, paymentData);
           // Refresh data to show new expiry date
-          await get().fetchData("users"); 
+          await get().fetchData("users");
           return true;
         } catch (e) {
           log.error("Failed to update expiry date via payment logic:", e);
         }
       }
-      
+
       const updatedUser = res.data;
       set((state) => ({
         users: state.users.map(u => (u.id === id || u.memberId === id) ? updatedUser : u)
@@ -316,7 +318,7 @@ export const useAdminStore = create((set, get) => ({
       set((state) => ({ consultations: state.consultations.filter(c => c.id !== id) }));
       toast.success("Lead removed");
       return true;
-    } catch(e) { toast.error("Failed to delete lead"); return false; }
+    } catch (e) { toast.error("Failed to delete lead"); return false; }
   },
 
   addConsultation: async (data) => {
@@ -325,7 +327,7 @@ export const useAdminStore = create((set, get) => ({
       set((state) => ({ consultations: [...state.consultations, res.data] }));
       toast.success("Lead added successfully");
       return true;
-    } catch(e) { toast.error("Failed to add lead"); return false; }
+    } catch (e) { toast.error("Failed to add lead"); return false; }
   },
 
   updateConsultationStatus: async (id, status) => {
@@ -336,7 +338,7 @@ export const useAdminStore = create((set, get) => ({
       }));
       toast.success(`Lead marked as ${status}`);
       return true;
-    } catch(e) { toast.error("Failed to update lead"); return false; }
+    } catch (e) { toast.error("Failed to update lead"); return false; }
   },
 
   updateLeaveStatus: async (id, status) => {
