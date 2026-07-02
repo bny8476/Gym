@@ -279,7 +279,10 @@ const ForgotPassword = () => {
       setMessage(res.data.message);
       setStep(2);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send reset code. Please try again.');
+      console.error("EmailJS or Backend Error:", err);
+      // EmailJS errors are usually in err.text
+      const errorMsg = err.text || err.response?.data?.error || 'Failed to send reset code. Please try again.';
+      setError(`Error: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
