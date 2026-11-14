@@ -28,7 +28,7 @@ public class Staff {
     @Column(columnDefinition = "TEXT")
     private String documents;
     
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "TEXT")
     private String profilePhoto;
 
     @OneToOne
