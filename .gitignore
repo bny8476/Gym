@@ -1,6 +1,7 @@
 # Logs
 logs
 *.log
+*build_log.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -35,4 +36,6 @@ drop.cjs
 migration_passwords.log
 live_bundle.js
 Detailed_Quotation.html
-backend/
+target/
+*.class
+coverage/
